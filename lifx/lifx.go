@@ -16,14 +16,14 @@ import (
 type Lifx struct {
 	log               *zap.Logger
 	mu                sync.RWMutex
-	devices           []lifxlan.Device
+	devices           map[lifxlan.Device]*struct{}
 	discoveryInterval time.Duration
 }
 
 // New returns a new Lifx light
 func New(log *zap.Logger, interval time.Duration) *Lifx {
 	return &Lifx{
-		devices:           []lifxlan.Device{},
+		devices:           make(map[lifxlan.Device]*struct{}),
 		mu:                sync.RWMutex{},
 		log:               log,
 		discoveryInterval: interval,
@@ -33,34 +33,36 @@ func New(log *zap.Logger, interval time.Duration) *Lifx {
 // Discover runs every 10 minutes and updates the list of available lights
 func (lifx *Lifx) Discover() {
 	ticker := time.NewTicker(lifx.discoveryInterval)
-	incomingDevices := make(chan lifxlan.Device)
-
 	ctx, cancel := context.WithTimeout(context.Background(), 2*time.Minute)
 	defer cancel()
 
-	// fire ticket immediately and once every 10 minutes there after
+	// fire ticker immediately and once every 10 minutes there after
 	for ; true; <-ticker.C {
+		lifx.log.Info("Discovering devices.")
+		incomingDevices := make(chan lifxlan.Device)
 		go func() {
 			if err := lifxlan.Discover(ctx, incomingDevices, ""); err != nil && err != context.Canceled && err != context.DeadlineExceeded {
 				log.Printf("Discovery failed: %v\n", err)
 			}
 		}()
 
-		for {
-			select {
-			case <-ctx.Done():
-				return
-			case device := <-incomingDevices:
-				lifx.mu.Lock()
-				lifx.devices = append(lifx.devices, device)
-				lifx.mu.Unlock()
+		go func() {
+			for {
+				select {
+				case <-ctx.Done():
+					return
+				case device := <-incomingDevices:
+					lifx.mu.Lock()
+					lifx.devices[device] = nil
+					lifx.mu.Unlock()
+				}
 			}
-		}
+		}()
 	}
 }
 
 // Lights returns a map of available lights
-func (lifx *Lifx) Lights() []lifxlan.Device {
+func (lifx *Lifx) Lights() map[lifxlan.Device]*struct{} {
 	lifx.mu.RLock()
 	defer lifx.mu.RUnlock()
 	return lifx.devices
@@ -68,12 +70,9 @@ func (lifx *Lifx) Lights() []lifxlan.Device {
 
 // On will turn on the lights
 func (lifx *Lifx) On(ctx context.Context) error {
-	lifx.mu.RLock()
-	defer lifx.mu.RUnlock()
-
 	var wg sync.WaitGroup
 	var errors error
-	for _, device := range lifx.devices {
+	for device := range lifx.devices {
 		wg.Add(1)
 		go func(device lifxlan.Device) {
 			err := device.SetPower(ctx, nil, lifxlan.PowerOn, true)
@@ -94,7 +93,7 @@ func (lifx *Lifx) Off(ctx context.Context) error {
 
 	var errors error
 	var wg sync.WaitGroup
-	for _, device := range lifx.devices {
+	for device := range lifx.devices {
 		wg.Add(1)
 		go func(device lifxlan.Device) {
 			err := device.SetPower(ctx, nil, lifxlan.PowerOff, true)
