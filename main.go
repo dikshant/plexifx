@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"time"
 
+	"github.com/davecgh/go-spew/spew"
 	"github.com/dikshant/plexifx/lifx"
 	"github.com/dikshant/plexifx/webhook"
 	"github.com/kelseyhightower/envconfig"
@@ -34,6 +35,7 @@ func main() {
 	}
 	defer logger.Sync()
 
+	spew.Printf("Discovery interval %v: , Discovery timeout: %v\n", c.DeviceDiscoveryInterval, c.DeviceDiscoveryTimeout)
 	// Start our webhook listener
 	webhook.New(c.Address, lifx.New(logger, c.DeviceDiscoveryInterval, c.DeviceDiscoveryTimeout), logger).Listen()
 }
