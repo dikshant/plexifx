@@ -12,7 +12,7 @@ import (
 
 // Config contains address of the webhook listener
 type Config struct {
-	Address                 string        `default:"0.0.0.0:6060"`
+	Address                 string        `default:"localhost:6060"`
 	DeviceDiscoveryInterval time.Duration `default:"60s"`
 	DeviceDiscoveryTimeout  time.Duration `default:"30s"`
 }
