@@ -69,7 +69,10 @@ func (lifx *Lifx) discover(interval time.Duration, timeout time.Duration) {
 			lifx.mu.Lock()
 			// Save the device if it does not exist
 			if _, ok := lifx.devices[device.Target().String()]; !ok {
-				device.GetLabel(ctx, conn)
+				err := device.GetLabel(ctx, conn)
+				if err != nil {
+					lifx.log.Sugar().Errorf("Failed to get device name: %s\n", err)
+				}
 				lifx.log.Sugar().Infof("Found a new device: %s", device.Label())
 				lifx.devices[device.Target().String()] = map[lifxlan.Device]net.Conn{
 					device: conn,
