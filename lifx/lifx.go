@@ -14,33 +14,31 @@ import (
 
 // Lifx provides methods to conduct actions on Lifx devices
 type Lifx struct {
-	log               *zap.Logger
-	mu                sync.RWMutex
-	devices           map[string]map[lifxlan.Device]net.Conn
-	discoveryInterval time.Duration
+	log     *zap.Logger
+	mu      sync.RWMutex
+	devices map[string]map[lifxlan.Device]net.Conn
 }
 
 // New returns a new Lifx light
 func New(log *zap.Logger, interval time.Duration, timeout time.Duration) *Lifx {
 	lifx := &Lifx{
-		devices:           make(map[string]map[lifxlan.Device]net.Conn),
-		mu:                sync.RWMutex{},
-		log:               log,
-		discoveryInterval: interval,
+		devices: make(map[string]map[lifxlan.Device]net.Conn),
+		mu:      sync.RWMutex{},
+		log:     log,
 	}
 
-	// Start discovery
 	go func() {
 		ticker := time.NewTicker(interval)
 		for ; true; <-ticker.C {
-			go lifx.discover(timeout)
+			go lifx.discover(interval, timeout)
 		}
 	}()
 
 	return lifx
 }
 
-func (lifx *Lifx) discover(timeout time.Duration) {
+func (lifx *Lifx) discover(interval time.Duration, timeout time.Duration) {
+
 	ctx, cancel := context.WithTimeout(context.Background(), timeout)
 	defer cancel()
 

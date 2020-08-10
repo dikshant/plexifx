@@ -49,5 +49,5 @@ func main() {
 
 	spew.Printf("Discovery interval %v: , Discovery timeout: %v\n", c.DiscoveryInterval, c.DiscoveryTimeout)
 	// Start our webhook listener
-	webhook.New(c.Address, lifx.New(logger, c.DiscoveryTimeout, c.DiscoveryInterval), logger).Listen()
+	webhook.New(c.Address, lifx.New(logger, c.DiscoveryInterval, c.DiscoveryTimeout), logger).Listen()
 }
