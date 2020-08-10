@@ -52,7 +52,8 @@ func (w *Webhook) Close() error {
 }
 
 func (w *Webhook) eventHandler(respWriter http.ResponseWriter, r *http.Request) {
-	err := r.ParseMultipartForm(1024 * 1024 * 16)
+	// Assuming plex payload is no more than 16KiB in size
+	err := r.ParseMultipartForm(16 * 1024)
 	if err != nil {
 		w.log.With(zap.Error(err)).Error("Failed to parse incoming multi part form in the request. Discarding.")
 		return
