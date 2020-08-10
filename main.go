@@ -13,13 +13,13 @@ import (
 // Config contains address of the webhook listener
 type Config struct {
 	Address                 string        `default:"0.0.0.0:6060"`
-	DeviceDiscoveryInterval time.Duration `default:"10s"`
-	DeviceDiscoveryTimeout  time.Duration `default:"5s"`
+	DeviceDiscoveryInterval time.Duration `default:"60s"`
+	DeviceDiscoveryTimeout  time.Duration `default:"30s"`
 }
 
 func main() {
 	var c Config
-	err := envconfig.Process("PLEXLIF", &c)
+	err := envconfig.Process("PLEXIFX", &c)
 	if err != nil {
 		panic(fmt.Errorf("could not parse config: %s", err))
 	}

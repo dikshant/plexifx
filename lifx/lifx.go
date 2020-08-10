@@ -18,7 +18,6 @@ type Lifx struct {
 	mu                sync.RWMutex
 	devices           map[string]map[lifxlan.Device]net.Conn
 	discoveryInterval time.Duration
-	discoveryQueue    chan struct{}
 }
 
 // New returns a new Lifx light
@@ -28,7 +27,6 @@ func New(log *zap.Logger, interval time.Duration, timeout time.Duration) *Lifx {
 		mu:                sync.RWMutex{},
 		log:               log,
 		discoveryInterval: interval,
-		discoveryQueue:    make(chan struct{}),
 	}
 
 	// Start discovery
@@ -39,57 +37,47 @@ func New(log *zap.Logger, interval time.Duration, timeout time.Duration) *Lifx {
 		}
 	}()
 
-	// Process discovery
-	go lifx.Discover()
-
 	return lifx
 }
 
-// Discover queues a discovery job
-func (lifx *Lifx) Discover() {
-	lifx.discoveryQueue <- struct{}{}
-}
-
 func (lifx *Lifx) discover(timeout time.Duration) {
-	for range lifx.discoveryQueue {
-		ctx, cancel := context.WithTimeout(context.Background(), timeout)
-		defer cancel()
+	ctx, cancel := context.WithTimeout(context.Background(), timeout)
+	defer cancel()
 
-		lifx.log.Info("Discovering devices.")
-		incomingDevices := make(chan lifxlan.Device)
-		go func() {
-			if err := lifxlan.Discover(ctx, incomingDevices, ""); err != nil && err != context.Canceled && err != context.DeadlineExceeded {
-				lifx.log.Sugar().Errorf("Discovery failed: %v\n", err)
-			}
-		}()
+	lifx.log.Info("Discovering devices.")
+	incomingDevices := make(chan lifxlan.Device)
+	go func() {
+		if err := lifxlan.Discover(ctx, incomingDevices, ""); err != nil && err != context.Canceled && err != context.DeadlineExceeded {
+			lifx.log.Sugar().Errorf("Discovery failed: %v\n", err)
+		}
+	}()
 
-		for {
-			select {
-			case <-ctx.Done():
-				lifx.mu.RLock()
-				lifx.log.Info("Discovery complete.")
-				lifx.log.Sugar().Infof("Total %d devices.", len(lifx.devices))
-				lifx.mu.RUnlock()
-				return
-			case device := <-incomingDevices:
-				if device == nil {
-					continue
-				}
-				conn, err := device.Dial()
-				if err != nil {
-					lifx.log.Sugar().Errorf("Connecting to device failed: %v\n", err)
-				}
-				lifx.mu.Lock()
-				// Save the device if it does not exist
-				if _, ok := lifx.devices[device.Target().String()]; !ok {
-					device.GetLabel(ctx, conn)
-					lifx.log.Sugar().Infof("Found a new device: %s", device.Label())
-					lifx.devices[device.Target().String()] = map[lifxlan.Device]net.Conn{
-						device: conn,
-					}
-				}
-				lifx.mu.Unlock()
+	for {
+		select {
+		case <-ctx.Done():
+			lifx.mu.RLock()
+			lifx.log.Info("Discovery complete.")
+			lifx.log.Sugar().Infof("Total %d devices.", len(lifx.devices))
+			lifx.mu.RUnlock()
+			return
+		case device := <-incomingDevices:
+			if device == nil {
+				continue
 			}
+			conn, err := device.Dial()
+			if err != nil {
+				lifx.log.Sugar().Errorf("Connecting to device failed: %v\n", err)
+			}
+			lifx.mu.Lock()
+			// Save the device if it does not exist
+			if _, ok := lifx.devices[device.Target().String()]; !ok {
+				device.GetLabel(ctx, conn)
+				lifx.log.Sugar().Infof("Found a new device: %s", device.Label())
+				lifx.devices[device.Target().String()] = map[lifxlan.Device]net.Conn{
+					device: conn,
+				}
+			}
+			lifx.mu.Unlock()
 		}
 	}
 }
