@@ -24,6 +24,7 @@ type Webhook struct {
 	lights *lifx.Lifx
 	addr   string
 	log    *zap.Logger
+	server *http.Server
 }
 
 // New creates a new webhook listener
@@ -32,13 +33,22 @@ func New(addr string, lifx *lifx.Lifx, log *zap.Logger) *Webhook {
 		lights: lifx,
 		addr:   addr,
 		log:    log,
+		server: &http.Server{Addr: addr},
 	}
 }
 
 // Listen will start the server to listen for webhooks
 func (w *Webhook) Listen() {
-	http.HandleFunc("/", w.eventHandler)
-	http.ListenAndServe(w.addr, nil)
+	mux := http.NewServeMux()
+	mux.HandleFunc("/", w.eventHandler)
+	w.server.Handler = mux
+	w.server.ListenAndServe()
+}
+
+// Close stop the webhook listner and any dependent services
+func (w *Webhook) Close() error {
+	w.lights.Close()
+	return w.server.Close()
 }
 
 func (w *Webhook) eventHandler(respWriter http.ResponseWriter, r *http.Request) {
