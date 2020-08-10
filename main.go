@@ -13,8 +13,8 @@ import (
 // Config contains address of the webhook listener
 type Config struct {
 	Address                 string        `default:"0.0.0.0:6060"`
-	DeviceDiscoveryInterval time.Duration `default:"60s"`
-	DeviceDiscoveryTimeout  time.Duration `default:"30s"`
+	DeviceDiscoveryInterval time.Duration `default:"10s"`
+	DeviceDiscoveryTimeout  time.Duration `default:"5s"`
 }
 
 func main() {
