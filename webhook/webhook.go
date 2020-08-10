@@ -7,7 +7,6 @@ import (
 	"io"
 	"io/ioutil"
 	"net/http"
-	"time"
 
 	"github.com/dikshant/plexifx/lifx"
 	"github.com/hekmon/plexwebhooks"
@@ -28,10 +27,7 @@ type Webhook struct {
 }
 
 // New creates a new webhook listener
-func New(addr string, interval time.Duration, log *zap.Logger) *Webhook {
-	lifx := lifx.New(log, interval)
-	go lifx.Discover()
-
+func New(addr string, lifx *lifx.Lifx, log *zap.Logger) *Webhook {
 	return &Webhook{
 		lights: lifx,
 		addr:   addr,
@@ -66,6 +62,7 @@ func (w *Webhook) eventHandler(respWriter http.ResponseWriter, r *http.Request) 
 
 	switch result.Event {
 	case plexwebhooks.EventTypePlay, plexwebhooks.EventTypeStop, plexwebhooks.EventTypeScrobble, plexwebhooks.EventTypePause, plexwebhooks.EventTypeResume:
+		w.log.Sugar().Infof("Received Plex event: %s", result.Event)
 		// Send along incoming events
 		go w.doAction(context.Background(), result.Event)
 	}
@@ -97,8 +94,8 @@ func (w *Webhook) parse(r *http.Request) (*plexwebhooks.Payload, error) {
 func (w *Webhook) doAction(ctx context.Context, event plexwebhooks.EventType) {
 	switch event {
 	case plexwebhooks.EventTypePlay, plexwebhooks.EventTypeResume:
-		w.lights.On(ctx)
+		w.lights.Power(ctx, false)
 	case plexwebhooks.EventTypePause, plexwebhooks.EventTypeStop:
-		w.lights.Off(ctx)
+		w.lights.Power(ctx, true)
 	}
 }
