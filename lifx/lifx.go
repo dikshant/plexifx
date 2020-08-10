@@ -67,13 +67,13 @@ func (lifx *Lifx) discover(broadcastAddress string, broadcastInterval time.Durat
 		broadcastAddress,
 	)
 	if err != nil {
-		lifx.log.Sugar().Errorf("failed to resolve broadcast address: %s", err)
+		return fmt.Errorf("failed to resolve broadcast address: %s", err)
 	}
 
 	// Message to be used for during broadcasts broadcast
 	msg, err := lifxlan.GenerateMessage(lifxlan.Tagged, 0, lifxlan.AllDevices, 0, 0, lifxlan.GetService, nil)
 	if err != nil {
-		lifx.log.Sugar().Errorf("failed to generate broadcast message: %s", err)
+		return fmt.Errorf("failed to generate broadcast message: %s", err)
 	}
 
 	go func() {
@@ -89,13 +89,11 @@ func (lifx *Lifx) discover(broadcastAddress string, broadcastInterval time.Durat
 				n, err := conn.WriteTo(msg, broadcast)
 				if err != nil {
 					lifx.log.Sugar().Errorf("failed to write broadcast message: %s", err)
+					return
 				}
 				if n < len(msg) {
-					lifx.log.Sugar().Errorf(
-						"lifxlan.Discover: only wrote %d out of %d bytes",
-						n,
-						len(msg),
-					)
+					lifx.log.Sugar().Errorf("only wrote %d out of %d bytes", n, len(msg))
+					return
 				}
 			}
 		}
