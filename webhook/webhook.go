@@ -51,6 +51,7 @@ func (w *Webhook) Close() error {
 	return w.server.Close()
 }
 
+// eventHandler deals with an incoming Plex webhook event
 func (w *Webhook) eventHandler(respWriter http.ResponseWriter, r *http.Request) {
 	// Assuming plex payload is no more than 16KiB in size
 	err := r.ParseMultipartForm(16 * 1024)
@@ -78,7 +79,7 @@ func (w *Webhook) eventHandler(respWriter http.ResponseWriter, r *http.Request) 
 	}
 }
 
-// parse verifies and parses the events specified and returns the payload object or an error
+// parse verifies and parses the request and returns the payload or an error
 func (w *Webhook) parse(r *http.Request) (*plexwebhooks.Payload, error) {
 	defer func() {
 		_, _ = io.Copy(ioutil.Discard, r.Body)

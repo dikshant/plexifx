@@ -27,7 +27,7 @@ type deviceWrapper struct {
 	conn   net.Conn
 }
 
-// New returns a new Lifx light
+// New returns a new Lifx agent
 func New(log *zap.Logger, broadcastAddress string, broadcastInterval time.Duration) (*Lifx, error) {
 	lifx := &Lifx{
 		devices:         &sync.Map{},
@@ -45,6 +45,7 @@ func New(log *zap.Logger, broadcastAddress string, broadcastInterval time.Durati
 	return lifx, nil
 }
 
+// discover will kick off a new broadcast every sample interval at the provided broadcast address
 func (lifx *Lifx) discover(broadcastAddress string, broadcastInterval time.Duration) error {
 
 	_, port, err := net.SplitHostPort(broadcastAddress)
@@ -102,7 +103,7 @@ func (lifx *Lifx) discover(broadcastAddress string, broadcastInterval time.Durat
 	return nil
 }
 
-// Discover will publish discovered devices
+// listenForDevices will return devices that are discovered
 func (lifx *Lifx) listenForDevices(conn net.PacketConn) error {
 	buf := make([]byte, lifxlan.ResponseReadBufferSize)
 	lifx.log.Info("Listening for devices.")
@@ -168,7 +169,7 @@ func (lifx *Lifx) process() {
 			// Dial to each device so we can store the connection for later use
 			conn, err := device.Dial()
 			if err != nil {
-				lifx.log.Sugar().Errorf("Connecting to device failed: %v", err)
+				lifx.log.Sugar().Errorf("Connection to device failed: %v", err)
 			}
 			err = device.GetLabel(context.Background(), conn)
 			if err != nil {
@@ -205,7 +206,7 @@ func (lifx *Lifx) Power(ctx context.Context, power bool) error {
 			if devInfo.conn == nil {
 				c, err := devInfo.device.Dial()
 				if err != nil {
-					lifx.log.Sugar().Errorf("Connecting to device failed: %v. Cannot power on.", err)
+					lifx.log.Sugar().Errorf("Connection to device failed: %v. Cannot power on.", err)
 					return
 				}
 				// Update the device's stored conection
