@@ -40,7 +40,7 @@ func New(addr string, lifx *lifx.Lifx, log *zap.Logger) *Webhook {
 // Listen will start the server to listen for webhooks
 func (w *Webhook) Listen() {
 	mux := http.NewServeMux()
-	mux.HandleFunc("/", w.eventHandler)
+	mux.HandleFunc("/plex", w.eventHandler)
 	w.server.Handler = mux
 	w.server.ListenAndServe()
 }
@@ -73,11 +73,9 @@ func (w *Webhook) eventHandler(respWriter http.ResponseWriter, r *http.Request) 
 
 	switch result.Event {
 	case plexwebhooks.EventTypePlay, plexwebhooks.EventTypeStop, plexwebhooks.EventTypeScrobble, plexwebhooks.EventTypePause, plexwebhooks.EventTypeResume:
-		w.log.Sugar().Infof("Received Plex event: %s", result.Event)
-		// Send along incoming events
+		// Process actions on parsed events
 		go w.doAction(context.Background(), result.Event)
 	}
-
 }
 
 // parse verifies and parses the events specified and returns the payload object or an error
@@ -105,8 +103,10 @@ func (w *Webhook) parse(r *http.Request) (*plexwebhooks.Payload, error) {
 func (w *Webhook) doAction(ctx context.Context, event plexwebhooks.EventType) {
 	switch event {
 	case plexwebhooks.EventTypePlay, plexwebhooks.EventTypeResume:
+		w.log.Sugar().Infof("Received Plex event: %s, powering off lights.", event)
 		w.lights.Power(ctx, false)
 	case plexwebhooks.EventTypePause, plexwebhooks.EventTypeStop:
+		w.log.Sugar().Infof("Received Plex event: %s, powering on lights", event)
 		w.lights.Power(ctx, true)
 	}
 }
