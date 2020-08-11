@@ -83,7 +83,7 @@ func (lifx *Lifx) discover(broadcastAddress string, broadcastInterval time.Durat
 				}
 
 				// Send broadcast
-				lifx.log.Info("Sending broadcast for discovery.")
+				lifx.log.Info("Sending broadcast packet for discovering devices.")
 				n, err := conn.WriteTo(msg, broadcast)
 				if err != nil {
 					lifx.log.Sugar().Errorf("Failed to write broadcast message: %s", err)

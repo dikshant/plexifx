@@ -18,7 +18,7 @@ import (
 type Config struct {
 	Address           string        `default:"localhost:6060" desc:"Address for the webhook listener in host:port form." required:"true"`
 	BroadcastAddress  string        `default:"255.255.255.255:56700" desc:"Address for Lifx broadcast host used for device discovery." required:"true"`
-	BroadcastInterval time.Duration `default:"30s" desc:"Interval for sending out a broadcast for discovery. Default is 60 seconds." required:"true"`
+	BroadcastInterval time.Duration `default:"10s" desc:"Interval for sending out a broadcast for discovery. Default is 60 seconds." required:"true"`
 }
 
 func main() {
