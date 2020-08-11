@@ -47,7 +47,7 @@ func New(log *zap.Logger, broadcastAddress string, broadcastInterval time.Durati
 
 // discover will kick off a new broadcast every sample interval at the provided broadcast address
 func (lifx *Lifx) discover(broadcastAddress string, broadcastInterval time.Duration) error {
-
+	// Parse the port from the broadcast address
 	_, port, err := net.SplitHostPort(broadcastAddress)
 	if err != nil {
 		return fmt.Errorf("invalid host port for brioadcast address: %s", err)
@@ -58,48 +58,54 @@ func (lifx *Lifx) discover(broadcastAddress string, broadcastInterval time.Durat
 	if err != nil {
 		return fmt.Errorf("failed to listen for UDP packets on address: %s", err)
 	}
+	// start listening for Lifx packets
+	go lifx.listenForDevices(conn)
 
+	// Broadcast a message every broadcast interval
 	go func() {
 		// Send a new braodacst every broadcast interval
 		ticker := time.NewTicker(broadcastInterval)
 		for ; true; <-ticker.C {
 			select {
 			case <-lifx.done:
-				conn.Close()
 				return
 			default:
-				//Resolve broadcast address so we can send a message
-				broadcast, err := net.ResolveUDPAddr(
-					"udp",
-					broadcastAddress,
-				)
-				if err != nil {
-					lifx.log.Sugar().Errorf("Failed to resolve broadcast address: %s", err)
-				}
-
-				// Message to be used for during broadcasts broadcast
-				msg, err := lifxlan.GenerateMessage(lifxlan.Tagged, 0, lifxlan.AllDevices, 0, 0, lifxlan.GetService, nil)
-				if err != nil {
-					lifx.log.Sugar().Errorf("Failed to generate broadcast message: %s", err)
-				}
-
-				// Send broadcast
-				lifx.log.Info("Sending broadcast packet for discovering devices.")
-				n, err := conn.WriteTo(msg, broadcast)
-				if err != nil {
-					lifx.log.Sugar().Errorf("Failed to write broadcast message: %s", err)
-					return
-				}
-				if n < len(msg) {
-					lifx.log.Sugar().Errorf("Only wrote %d out of %d bytes", n, len(msg))
-					return
-				}
+				lifx.broadcast(broadcastAddress, conn)
 			}
 		}
 	}()
 
-	// listen for any new devices after broadcasting
-	go lifx.listenForDevices(conn)
+	return nil
+}
+
+// broadcast will send a broadcast on the given address with the given conn
+func (lifx *Lifx) broadcast(broadcastAddress string, conn net.PacketConn) error {
+	//Resolve broadcast address so we can send a message
+	broadcast, err := net.ResolveUDPAddr(
+		"udp",
+		broadcastAddress,
+	)
+	if err != nil {
+		return fmt.Errorf("failed to resolve broadcast address: %s", err)
+
+	}
+
+	// Message to be used for during broadcasts broadcast
+	msg, err := lifxlan.GenerateMessage(lifxlan.Tagged, 0, lifxlan.AllDevices, 0, 0, lifxlan.GetService, nil)
+	if err != nil {
+		return fmt.Errorf("failed to generate broadcast message: %s", err)
+	}
+
+	// Send broadcast
+	lifx.log.Info("Sending broadcast packet for discovering devices.")
+	n, err := conn.WriteTo(msg, broadcast)
+	if err != nil {
+		return fmt.Errorf("failed to write broadcast message: %s", err)
+
+	}
+	if n < len(msg) {
+		return fmt.Errorf("only wrote %d out of %d bytes", n, len(msg))
+	}
 	return nil
 }
 
